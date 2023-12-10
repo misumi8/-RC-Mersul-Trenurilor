@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<trains>
+    <train id = "M2">
+        <from>Iasi</from>
+        <to>Bucuresti</to>
+        <departure>00:50</departure>
+        <arrival>07:00</arrival>
+        <stations>
+            <statie name="Iasi">
+                <arrival_time>00:30</arrival_time>
+                <departure_time>00:50</departure_time>
+            </statie>
+            <statie name="Buzau">
+                <arrival_time>05:20</arrival_time>
+                <departure_time>05:30</departure_time>
+            </statie>
+            <statie name="Bucuresti">
+                <arrival_time>07:00</arrival_time>
+                <departure_time>--:--</departure_time>
+            </statie>
+        </stations>
+        <new_departure>00:50</new_departure>
+        <new_arrival>07:00</new_arrival>
+        <departure_delay>0</departure_delay>
+        <arrival_delay>0</arrival_delay>
+    </train>
+
+    <train id = "L1">
+        <from>Iasi</from>
+        <to>Suceava</to>
+        <departure>06:30</departure>
+        <arrival>09:00</arrival>
+        <stations>
+            <statie name="Iasi">
+                <arrival_time>06:10</arrival_time>
+                <departure_time>06:30</departure_time>
+            </statie>
+            <statie name="Pascani">
+                <arrival_time>08:00</arrival_time>
+                <departure_time>08:10</departure_time>
+            </statie>
+            <statie name="Suceava">
+                <arrival_time>09:00</arrival_time>
+                <departure_time>--:--</departure_time>
+            </statie>
+        </stations>
+        <new_departure>06:30</new_departure>
+        <new_arrival>09:00</new_arrival>
+        <departure_delay>0</departure_delay>
+        <arrival_delay>0</arrival_delay>
+    </train>
+
+    <train id = "M3">
+        <from>Iasi</from>
+        <to>Galati</to>
+        <departure>12:20</departure>
+        <arrival>16:00</arrival>
+        <stations>
+            <statie name="Iasi">
+                <arrival_time>12:00</arrival_time>
+                <departure_time>12:20</departure_time>
+            </statie>
+            <statie name="Barlad">
+                <arrival_time>14:10</arrival_time>
+                <departure_time>14:20</departure_time>
+            </statie>
+            <statie name="Galati">
+                <arrival_time>16:00</arrival_time>
+                <departure_time>--:--</departure_time>
+            </statie>
+        </stations>
+        <new_departure>12:20</new_departure>
+        <new_arrival>16:00</new_arrival>
+        <departure_delay>0</departure_delay>
+        <arrival_delay>0</arrival_delay>
+    </train>
+</trains>
