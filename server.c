@@ -68,7 +68,7 @@ void* new_client(void* arg){
 			break;
 		}
 	}
-	if(close(csd) == -1) return errno;
+	if(close(csd) == -1) perror("Eroare la close.");
 	pthread_exit(NULL);
 }
 
@@ -85,11 +85,9 @@ int main(){
 
     struct sockaddr_in server;	
     struct sockaddr_in from;
-    //char comanda[100];	// ne ajunge pentru orice comandă predefinită	
-    //char* raspuns = (char*)malloc(schedule_size + 1); // raspunsul nu ar trebui să fie mai mare ca mărimea .xml, dar cel puțin lăsăm așa temporar
     int sd;	
 
-    if ((sd = socket (AF_INET, SOCK_STREAM, 0)) == -1)
+    if ((sd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
     {
     	perror ("Eroare la socket().\n");
     	return errno;
@@ -103,7 +101,7 @@ int main(){
     server.sin_port = htons(PORT);
 
 	//in caz ca adresa deja se foloseste
-    if (bind(sd, (struct sockaddr *) &server, sizeof(struct sockaddr)) == -1){
+    if (bind(sd, (struct sockaddr *)&server, sizeof(struct sockaddr)) == -1){
     	perror("Eroare la bind().\n");
     	return errno;
     }
@@ -131,7 +129,7 @@ int main(){
     	}
 
 		if(pthread_create(&threads[threads_count], NULL, new_client, (void*)&client) != 0){
-			perror("eroare creare thread");
+			perror("Eroare la creare thread");
 			return errno;
 		}
 		threads_count++;
@@ -147,4 +145,6 @@ int main(){
 			threads_count = 0;
 		}
     }
+	
+	close(sd);
 }

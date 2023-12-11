@@ -35,12 +35,13 @@ int main(int argc, char *argv[]){
       herror("Eroare la socket().\n");
   }
 
-  server.sin_family = AF_INET;
+  server.sin_family = AF_INET; // address family
   server.sin_addr.s_addr = inet_addr(argv[1]);  /* adresa IP a serverului | inet_addr = convert to IPv4*/
   server.sin_port = htons (port);
   
   if (connect(sd, (struct sockaddr*) &server, sizeof(struct sockaddr)) == -1){
       herror("Eroare la connect().\n");
+      return errno;
   }
 
   bzero(comanda, 100);
@@ -59,9 +60,10 @@ int main(int argc, char *argv[]){
     if ((answer_size = read(sd, raspuns, ANSWR_SIZE)) < 0){
         herror("Eroare la read() de la server sau serverul a fost închis\n");
     }
-    printf ("%s \n answer_size: %d\n", raspuns, answer_size);
+    printf("%s", raspuns);
+    printf("%d\n", answer_size);
     bzero(raspuns, ANSWR_SIZE);
   }
   
-  close (sd);
+  close(sd);
 }
