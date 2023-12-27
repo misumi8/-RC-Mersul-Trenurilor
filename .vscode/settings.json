@@ -1,0 +1,21 @@
+{
+"terminal.integrated.env.linux": {
+    "C_INCLUDE_PATH": "/path/to/libxml2/include",
+    "LD_LIBRARY_PATH": "/path/to/libxml2/lib"
+},
+"files.associations": {
+    "in.h": "c",
+    "types.h": "c",
+    "socket.h": "c",
+    "stat.h": "c",
+    "string.h": "c",
+    "inet.h": "c",
+    "stdio.h": "c",
+    "typeinfo": "c",
+    "array": "c",
+    "memory": "c",
+    "functional": "c",
+    "tuple": "c",
+    "utility": "c"
+}
+}
