@@ -324,7 +324,8 @@ void* time_simulation(void* arg){
 	float minute = 1.0/60.0;
 	while(1){
 		server_timef += minute;
-		usleep(300000);
+		usleep(500000);
+		//printf("%s\n", timp_actual);
 		if(server_timef >= 24.0) server_timef = 0.0;
 		int hour = (int)(server_timef);
 		int minutes = (server_timef - (float)hour) * 60;
