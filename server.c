@@ -13,14 +13,35 @@
 #include <libxml/parser.h>
 #include <libxml/tree.h>
 #include <math.h>
+#include <semaphore.h>
 
-#define PORT 2024
+#define PORT 2024 
 #define s 4096
 #define MAX_CL 3
+#define TRENUL_ASTEAPTA 10
 extern int errno;
 
 float server_timef = 0.0;
 char timp_actual[50];
+sem_t sem;
+
+void reset_schedule(){
+	xmlDocPtr doc = xmlReadFile("schedule_backup.xml", NULL, 0);
+	if(doc == NULL){
+		perror("Eroare la xmlReadFile");
+		exit(2);
+	}
+	if(sem_wait(&sem) != 0){
+		perror("Eroare la sem_wait");
+		exit(0);
+	}
+	xmlSaveFormatFileEnc("schedule.xml", doc, "UTF-8", 1);
+	xmlFreeDoc(doc);
+	if(sem_post(&sem) != 0){
+		perror("Eroare la sem_post");
+		exit(0);
+	}
+}
 
 void addStationsDelay(xmlNodePtr train_stations, char delay[4]){
 	xmlNodePtr statie = train_stations->children;
@@ -83,6 +104,9 @@ void* new_client(void* arg){
 	statie_client[strlen(statie_client) - 1] = '\0';
 	//printf("\n|%s|\n", statie_client);
 	while(1){
+		bool working = false;
+		int stationsNo = 0;
+		bool primaIntarziere = false;
 		bzero(&comanda, 100);
 		bzero(&raspuns, s);
 		if(read(csd, comanda, 100) <= 0){
@@ -91,15 +115,24 @@ void* new_client(void* arg){
 		}
 		printf("Comanda primita: %s\n", comanda);
 		// pregatim raspunsul pentru comanda
-		if(strstr(comanda, "time") != NULL || strcmp(comanda, "0\n") == 0){
+		if(strstr(comanda, "change_station") != NULL){
+			strcpy(statie_client, &comanda[15]);
+			statie_client[strlen(statie_client) - 1] = '\0';
+		}
+		else if(strstr(comanda, "time") != NULL || strcmp(comanda, "1\n") == 0){
 			strcat(raspuns, "[RASPUNS] Time: ");
 			strcat(raspuns, timp_actual);
 			strcat(raspuns, "\n");
 		}
-		else if(strstr(comanda, "mersul_trenurilor") != NULL || strcmp(comanda, "1\n") == 0) {
+		else if(strstr(comanda, "mersul_trenurilor") != NULL || strcmp(comanda, "2\n") == 0) {
+			working = true;
 			strcat(raspuns, "[RASPUNS] Mersul trenurilor:\n\n");
 			xmlDocPtr schedule;
 			xmlNodePtr root, trenuri;
+			if(sem_wait(&sem) != 0){
+				perror("Eroare la sem_wait");
+				pthread_exit(NULL);
+			}
 			schedule = xmlReadFile("schedule.xml", NULL, 0);
 			if(schedule == NULL){
 				perror("Eroare la citirea fisierului schedule.xml\n");
@@ -110,42 +143,41 @@ void* new_client(void* arg){
             }
 			trenuri = root->children;
 			while (trenuri != NULL) {
-				//if (!(trenuri->name == (const xmlChar *)"train")) {
+				//if (!(trenuri->name == (const xmlChar*)"train")) {
 					xmlNodePtr temp = trenuri->children;
 					int station_nr = 1;
 					while (temp != NULL) {
 						if (temp->type == XML_ELEMENT_NODE) {
 							//printf("%s: %s\n", temp->name, xmlNodeGetContent(temp));
-							if(xmlStrcmp(temp->name, (const xmlChar *)"id") == 0){
+							if(xmlStrcmp(temp->name, (const xmlChar*)"id") == 0){
 								strcat(raspuns, "<=== Trenul ");
 								strcat(raspuns, xmlNodeGetContent(temp));
 								strcat(raspuns, " ===>\n");
 							}
-							else if(xmlStrcmp(temp->name, (const xmlChar *)"from") == 0){
+							else if(xmlStrcmp(temp->name, (const xmlChar*)"from") == 0){
 								strcat(raspuns, xmlNodeGetContent(temp));
 								strcat(raspuns, " -> ");
 							}
-							else if(xmlStrcmp(temp->name, (const xmlChar *)"to") == 0){
+							else if(xmlStrcmp(temp->name, (const xmlChar*)"to") == 0){
 								strcat(raspuns, xmlNodeGetContent(temp));
 								strcat(raspuns, "\n");
 							}
-							else if(xmlStrcmp(temp->name, (const xmlChar *)"new_departure") == 0){
+							else if(xmlStrcmp(temp->name, (const xmlChar*)"new_departure") == 0){
 								strcat(raspuns, "Plecarea: ");
 								strcat(raspuns, xmlNodeGetContent(temp));
 								strcat(raspuns, "\n");
 							}
-							else if(xmlStrcmp(temp->name, (const xmlChar *)"new_arrival") == 0){
+							else if(xmlStrcmp(temp->name, (const xmlChar*)"new_arrival") == 0){
 								strcat(raspuns, "Sosirea: ");
 								strcat(raspuns, xmlNodeGetContent(temp));
 								strcat(raspuns, "\n\n");
 							}
-							else if(temp->type == XML_ELEMENT_NODE && xmlStrcmp(temp->name, (const xmlChar *)"statie") == 0){
+							else if(xmlStrcmp(temp->name, (const xmlChar*)"statie") == 0){
 								xmlNodePtr statie = temp->children;
 								char nume_statie[100];
 								char ord_statie[100];
-								//printf("%s | %s\n", temp->name, statie->name);
 								while(statie != NULL){
-									if(xmlStrcmp(statie->name, (const xmlChar *)"name") == 0){
+									if(xmlStrcmp(statie->name, (const xmlChar*)"name") == 0){
 										strcat(raspuns, "*Statia ");
 										sprintf(ord_statie, "%d", station_nr);
 										strcat(raspuns, ord_statie);
@@ -155,12 +187,12 @@ void* new_client(void* arg){
 										strcat(nume_statie, xmlNodeGetContent(statie));
 										station_nr++;
 									}
-									else if(xmlStrcmp(statie->name, (const xmlChar *)"arrival_time") == 0){
+									else if(xmlStrcmp(statie->name, (const xmlChar*)"arrival_time") == 0){
 										strcat(raspuns, "Ajunge la ");
 										strcat(raspuns, xmlNodeGetContent(statie));
 										strcat(raspuns, "\n");
 									}
-									else if(xmlStrcmp(statie->name, (const xmlChar *)"arrival_delay") == 0){
+									else if(xmlStrcmp(statie->name, (const xmlChar*)"arrival_delay") == 0){
 										strcat(raspuns, "Intarziere: ");
 										if(strcmp(xmlNodeGetContent(statie), "0") == 0) strcat(raspuns, "NU\n");
 										else {
@@ -175,24 +207,323 @@ void* new_client(void* arg){
 						}
 						temp = temp->next;
 					}
-				//}
 				trenuri = trenuri->next;
 			}
+			if(sem_post(&sem) != 0) {
+				perror("Eroare la sem_post");
+				pthread_exit(NULL);
+			}
 		}
-		else if(strstr(comanda, "plecari_in_ora") != NULL || strcmp(comanda, "2\n") == 0){
-			strcat(raspuns, "[RASPUNS] Plecări în următoarea oră din stația ");
-			strcat(raspuns, statie_client);
-			strcat(raspuns, ":\n");
+		else if(strstr(comanda, "plecari_in_ora") != NULL || strcmp(comanda, "3\n") == 0){
+			working = true;
+			char h[3], m[3];
+			for(int i = 0; i < 2; ++i){
+				h[i] = timp_actual[i];
+                m[i] = timp_actual[i+3];
+			}
+			h[2] = '\0';
+			m[2] = '\0';
+			int ore = atoi(h), minute = atoi(m);
+			strcat(raspuns, "[RASPUNS] Plecări în următoarea oră (");
+			char peste_o_ora[6];
+			strcpy(peste_o_ora, timp_actual);
+			peste_o_ora[5] = '\0';
+			strcat(raspuns, peste_o_ora);
+			strcat(raspuns, "-");
+			ore++;
+			if(ore >= 24) ore -= 24;
+ 			if(ore > 9 && minute > 9) sprintf(peste_o_ora, "%d:%d", ore, minute);
+			else if(ore > 9 && minute <= 9)sprintf(peste_o_ora, "%d:0%d", ore, minute);
+			else if(ore <= 9 && minute > 9)sprintf(peste_o_ora, "0%d:%d", ore, minute);
+			else if(ore <= 9 && minute <= 9)sprintf(peste_o_ora, "0%d:0%d", ore, minute);
+			strcat(raspuns, peste_o_ora);
+			strcat(raspuns, "):\n");
+			ore--;
+			if(ore < 0) ore += 24;
+			xmlDocPtr schedule;
+			xmlNodePtr root, trenuri;
+			if(sem_wait(&sem) != 0){
+				perror("Eroare la sem_wait");
+				pthread_exit(NULL);
+			}
+			schedule = xmlReadFile("schedule.xml", NULL, 0);
+			if(schedule == NULL){
+				perror("Eroare la citirea fisierului schedule.xml\n");
+			}
+			root = xmlDocGetRootElement(schedule);
+			if(root == NULL){
+				perror("Fisierul xml e gol\n");
+            }
+			trenuri = root->children;
+			while(trenuri != NULL){
+				xmlNodePtr TrenInfo = trenuri->children;
+				while(TrenInfo != NULL){
+					bool departure_found = false, train_found = false;
+					if (TrenInfo->type == XML_ELEMENT_NODE) {
+						if(xmlStrcmp(TrenInfo->name, (const xmlChar*)"id") == 0){
+							strcat(raspuns, "*Trenul ");
+							strcat(raspuns, xmlNodeGetContent(TrenInfo));
+							strcat(raspuns, ":\n");
+							train_found = true;
+						}
+						else if(xmlStrcmp(TrenInfo->name, (const xmlChar*)"statie") == 0){
+							xmlNodePtr StatieInfo = TrenInfo->children;
+							char station_name[100];
+							while(StatieInfo != NULL){
+								if(StatieInfo->type == XML_ELEMENT_NODE && xmlStrcmp(StatieInfo->name, (const xmlChar*)"name") == 0){
+									strcpy(station_name, xmlNodeGetContent(StatieInfo));
+									station_name[strlen(station_name)] = '\0';
+								}
+								else if(StatieInfo->type == XML_ELEMENT_NODE && xmlStrcmp(StatieInfo->name, (const xmlChar*)"arrival_time") == 0){
+									char arrival_time[6], ha[3], ma[3];
+									strcpy(arrival_time, xmlNodeGetContent(StatieInfo));
+									arrival_time[5] = '\0';
+									for(int i = 0; i < 2; ++i){
+										ha[i] = arrival_time[i];
+                                        ma[i] = arrival_time[i+3];
+									}
+									ha[2] = '\0';
+									ma[2] = '\0';
+									int arr_ore = atoi(ha), arr_minute = atoi(ma) + 5;
+									if(arr_minute >= 60){
+										arr_ore++;
+                                        arr_minute -= 60;
+									}
+									if(arr_ore >= 24) arr_minute -= 24;
+									if((((arr_ore % 24) == (ore % 24) + 1) && (arr_minute <= minute)) || (((arr_ore % 24) == (ore % 24)) && (arr_minute >= minute))){
+										strcat(raspuns, "  ");
+										strcat(raspuns, station_name);
+										TrenInfo = TrenInfo->next; // trecem peste text:
+										if(TrenInfo->next != NULL){
+											xmlNodePtr NextStation = TrenInfo->next;
+											while(NextStation->type != XML_ELEMENT_NODE) NextStation = NextStation->next;
+											xmlNodePtr NextStationInfo = NextStation->children;
+											while(NextStationInfo != NULL){
+												if(NextStationInfo->type == XML_ELEMENT_NODE && xmlStrcmp(NextStationInfo->name, (const xmlChar*)"name") == 0){
+													strcat(raspuns, " -> ");
+                                                    strcat(raspuns, xmlNodeGetContent(NextStationInfo));
+													strcat(raspuns, " | ");
+													if(arr_ore > 9 && arr_minute > 9) sprintf(arrival_time, "%d:%d", arr_ore, arr_minute);
+													else if(arr_ore > 9 && arr_minute <= 9) sprintf(arrival_time, "%d:0%d", arr_ore, arr_minute);
+													else if(arr_ore <= 9 && arr_minute > 9) sprintf(arrival_time, "0%d:%d", arr_ore, arr_minute);
+													else if(arr_ore <= 9 && arr_minute <= 9) sprintf(arrival_time, "0%d:0%d", arr_ore, arr_minute);
+													strcat(raspuns, arrival_time);
+                                                    strcat(raspuns, "\n");
+													departure_found = true;
+												}
+												NextStationInfo = NextStationInfo->next;
+											}
+										}
+										else{
+											strcat(raspuns, " -> CURSĂ SPECIALĂ(SPRE HANGAR) | ");
+											if(arr_ore > 9 && arr_minute > 9) sprintf(arrival_time, "%d:%d", arr_ore, arr_minute);
+											else if(arr_ore > 9 && arr_minute <= 9) sprintf(arrival_time, "%d:0%d", arr_ore, arr_minute);
+											else if(arr_ore <= 9 && arr_minute > 9) sprintf(arrival_time, "0%d:%d", arr_ore, arr_minute);
+											else if(arr_ore <= 9 && arr_minute <= 9) sprintf(arrival_time, "0%d:0%d", arr_ore, arr_minute);
+											strcat(raspuns, arrival_time);
+                                            strcat(raspuns, "\n");
+											departure_found = true;
+										}
+									}
+								}								
+								StatieInfo = StatieInfo->next;
+							}
+						}
+					}
+					TrenInfo = TrenInfo->next;
+				}
+				trenuri = trenuri->next;
+			}
+			if(sem_post(&sem) != 0) {
+				perror("Eroare la sem_post");
+				pthread_exit(NULL);
+			}
 		} 
-		else if(strstr(comanda, "sosiri_in_ora") != NULL || strcmp(comanda, "3\n") == 0){
-			strcat(raspuns, "[RASPUNS] Sosiri în următoarea oră din stația ");
-			strcat(raspuns, statie_client);
-			strcat(raspuns, ":\n");
+		else if(strstr(comanda, "sosiri_in_ora") != NULL || strcmp(comanda, "4\n") == 0){
+			working = true;
+			char h[3], m[3];
+			for(int i = 0; i < 2; ++i){
+				h[i] = timp_actual[i];
+                m[i] = timp_actual[i+3];
+			}
+			h[2] = '\0';
+			m[2] = '\0';
+			int ore = atoi(h), minute = atoi(m);
+			strcat(raspuns, "[RASPUNS] Sosiri în următoarea oră (");
+			char peste_o_ora[6], timp_actual_cpy[6];
+			strcpy(peste_o_ora, timp_actual);
+			strcpy(timp_actual_cpy, timp_actual);
+			peste_o_ora[5] = '\0';
+			timp_actual_cpy[5] = '\0';
+			strcat(raspuns, peste_o_ora);
+			strcat(raspuns, "-");
+			ore++;
+			if(ore >= 24) ore -= 24;
+			if(ore > 9 && minute > 9) sprintf(peste_o_ora, "%d:%d", ore, minute);
+			else if(ore > 9 && minute <= 9)sprintf(peste_o_ora, "%d:0%d", ore, minute);
+			else if(ore <= 9 && minute > 9)sprintf(peste_o_ora, "0%d:%d", ore, minute);
+			else if(ore <= 9 && minute <= 9)sprintf(peste_o_ora, "0%d:0%d", ore, minute);
+			strcat(raspuns, peste_o_ora);
+			strcat(raspuns, "):\n");
+			ore--;
+			if(ore < 0) ore += 24;
+
+			xmlDocPtr schedule;
+			xmlNodePtr root, trenuri;
+			if(sem_wait(&sem) != 0){
+				perror("Eroare la sem_wait");
+				pthread_exit(NULL);
+			}
+			schedule = xmlReadFile("schedule.xml", NULL, 0);
+			if(schedule == NULL){
+				perror("Eroare la citirea fisierului schedule.xml\n");
+			}
+			root = xmlDocGetRootElement(schedule);
+			if(root == NULL){
+				perror("Fisierul xml e gol\n");
+            }
+			trenuri = root->children;
+			char pre_station[100];
+			while(trenuri != NULL){
+				xmlNodePtr TrenInfo = trenuri->children;
+				while(TrenInfo != NULL){
+					bool departure_found = false, train_found = false;
+					if (TrenInfo->type == XML_ELEMENT_NODE) {
+						if(xmlStrcmp(TrenInfo->name, (const xmlChar*)"id") == 0){
+							strcat(raspuns, "*Trenul ");
+							strcat(raspuns, xmlNodeGetContent(TrenInfo));
+							strcat(raspuns, ":\n");
+							stationsNo = 0;
+							train_found = true;
+						}
+						else if(xmlStrcmp(TrenInfo->name, (const xmlChar*)"statie") == 0){
+							xmlNodePtr StatieInfo = TrenInfo->children;
+							char station_name[100];
+							while(StatieInfo != NULL){
+								if(StatieInfo->type == XML_ELEMENT_NODE && xmlStrcmp(StatieInfo->name, (const xmlChar*)"name") == 0){
+									strcpy(station_name, xmlNodeGetContent(StatieInfo));
+									station_name[strlen(station_name)] = '\0';
+									stationsNo++;
+								}
+								else if(StatieInfo->type == XML_ELEMENT_NODE && xmlStrcmp(StatieInfo->name, (const xmlChar*)"arrival_time") == 0){
+									char arrival_time[6], ha[3], ma[3];
+									strcpy(arrival_time, xmlNodeGetContent(StatieInfo));
+									arrival_time[5] = '\0';
+									for(int i = 0; i < 2; ++i){
+										ha[i] = arrival_time[i];
+                                        ma[i] = arrival_time[i+3];
+									}
+									ha[2] = '\0';
+									ma[2] = '\0';
+									int arr_ore = atoi(ha), arr_minute = atoi(ma);
+									if((((arr_ore % 24) == (ore % 24) + 1) && (arr_minute <= minute)) || (((arr_ore % 24) == (ore % 24)) && (arr_minute >= minute))){
+										//printf("|%d|\n",stationsNo);
+										//fflush(stdout);
+										strcat(raspuns, "  ");
+										if(stationsNo == 1){
+											strcat(raspuns, "CURSĂ SPECIALĂ(DIN HANGAR)");
+										}
+										else{
+											strcat(raspuns, pre_station);
+										}
+										strcat(raspuns, " -> ");
+										strcat(raspuns, station_name);
+										strcat(raspuns, " | ");
+										strcat(raspuns, arrival_time);
+										strcat(raspuns, "\n");
+									}
+									else{
+										strcpy(pre_station, station_name);
+									}
+								}								
+								StatieInfo = StatieInfo->next;
+							}
+						}
+					}
+					TrenInfo = TrenInfo->next;
+				}
+				trenuri = trenuri->next;
+			}
+			if(sem_post(&sem) != 0) {
+				perror("Eroare la sem_post");
+				pthread_exit(NULL);
+			}
 		} 
-		else if(strstr(comanda, "intarzieri") != NULL || strcmp(comanda, "4\n") == 0){
+		else if(strstr(comanda, "intarzieri") != NULL || strcmp(comanda, "5\n") == 0){
+			working = true;
 			strcat(raspuns, "[RASPUNS] Întârzieri:\n");
+			xmlDocPtr schedule;
+			xmlNodePtr root, trenuri;
+			if(sem_wait(&sem) != 0){
+				perror("Eroare la sem_wait");
+				pthread_exit(NULL);
+			}
+			schedule = xmlReadFile("schedule.xml", NULL, 0);
+			if(schedule == NULL){
+			    perror("Eroare la citirea fisierului schedule.xml\n");
+			}
+			root = xmlDocGetRootElement(schedule);
+			if(root == NULL){
+				perror("Fisierul xml e gol\n");
+			}
+			trenuri = root->children;
+			while(trenuri != NULL){
+				xmlNodePtr InfoTren = trenuri->children;
+				int to_rem = 0; 
+				bool tren_gasit = false;
+				while(InfoTren != NULL){
+					if(InfoTren->type == XML_ELEMENT_NODE){
+						if(xmlStrcmp(InfoTren->name, (const xmlChar*)"id") == 0){
+							tren_gasit = true;
+							strcat(raspuns, "*Trenul ");
+							strcat(raspuns, xmlNodeGetContent(InfoTren));
+							strcat(raspuns, ": ");
+							to_rem = strlen(raspuns);
+							//printf("%d\n", to_rem);
+							//fflush(stdout);
+						}
+						else if(xmlStrcmp(InfoTren->name, (const xmlChar*)"statie") == 0){
+							xmlNodePtr InfoStatie = InfoTren->children;
+							xmlNodePtr InfoStatie_copy = InfoTren->children;
+							while(InfoStatie != NULL){
+								if(xmlStrcmp(InfoStatie->name, (const xmlChar*)"arrival_delay") == 0 && InfoStatie->type == XML_ELEMENT_NODE){
+									if(atoi(xmlNodeGetContent(InfoStatie)) > 0){
+										//fara_intarzieri = false;
+										while(InfoStatie_copy != NULL){
+											if(xmlStrcmp(InfoStatie_copy->name, (const xmlChar*)"name") == 0 && InfoStatie_copy->type == XML_ELEMENT_NODE){
+												if(primaIntarziere == true) strcat(raspuns, "            ");
+												strcat(raspuns, "va întârzia la stația \"");
+												strcat(raspuns, xmlNodeGetContent(InfoStatie_copy));
+												strcat(raspuns, "\" cu ");
+												strcat(raspuns, xmlNodeGetContent(InfoStatie));
+												strcat(raspuns, " minute | ");
+											}
+											else if(xmlStrcmp(InfoStatie_copy->name, (const xmlChar*)"arrival_time") == 0 && InfoStatie_copy->type == XML_ELEMENT_NODE){
+												strcat(raspuns, xmlNodeGetContent(InfoStatie_copy));
+												strcat(raspuns, "\n");
+											}
+											InfoStatie_copy = InfoStatie_copy->next;
+										}
+										primaIntarziere = true;
+									}
+								}
+								InfoStatie = InfoStatie->next;
+							}
+							//if(fara_intarzieri == true) strcat(raspuns, "fară întârzieri.\n");
+						}
+					}
+					InfoTren = InfoTren->next;
+				}
+				if(to_rem == strlen(raspuns) && tren_gasit == true) strcat(raspuns, "fară întârzieri.\n");
+				trenuri = trenuri->next;
+			}
+			if(sem_post(&sem) != 0) {
+				perror("Eroare la sem_post");
+				pthread_exit(NULL);
+			}
 		} 
 		else if(strstr(comanda, "intarziere") != NULL){
+			working = true;
 			if(comanda[2] != ' ' || (comanda[3] < '0' || comanda[3] > '9')) strcat(raspuns, "[EROARE] Sintaxa greșită.\n");
 			else{
 				char train_id[3];
@@ -208,6 +539,10 @@ void* new_client(void* arg){
 
 				xmlDocPtr schedule;
 				xmlNodePtr root, trenuri;
+				if(sem_wait(&sem) != 0){
+					perror("Eroare la sem_wait");
+					pthread_exit(NULL);
+				}
 				schedule = xmlReadFile("schedule.xml", NULL, 0);
 				if(schedule == NULL){
 					perror("Eroare la citirea fisierului schedule.xml\n");
@@ -222,22 +557,26 @@ void* new_client(void* arg){
 				bool found = false, train_found = false, station_found = false;
 				while(trenuri != NULL){
 					xmlNodePtr temp = trenuri->children;
+					xmlNodePtr temp_copy1 = temp;
+					xmlNodePtr temp_copy2 = temp;
 					while(temp != NULL){
-						if(xmlStrcmp(temp->name, (const xmlChar *)"id") == 0){
+						if(xmlStrcmp(temp->name, (const xmlChar*)"id") == 0){
 							if(strcmp(xmlNodeGetContent(temp), train_id) == 0){
 								//Am gasit trenul
 								train_found = true;
 								while(temp != NULL){
 									//cautam daca exista statia clientului in lista statiilor trenului
-									if(xmlStrcmp(temp->name, (const xmlChar *)"statie") == 0){
+									if(xmlStrcmp(temp->name, (const xmlChar*)"statie") == 0){
 										xmlNodePtr statie = temp->children;
+										int station_no = 0;
 										while(statie != NULL){
-											if(xmlStrcmp(statie->name, (const xmlChar *)"name") == 0){
+											station_no++;
+											if(xmlStrcmp(statie->name, (const xmlChar*)"name") == 0){
 												if(strcmp(xmlNodeGetContent(statie), statie_client) == 0){
 													station_found = true;
 													char arrival_time[6], ariv_ore[3], ariv_minute[3];
 													while(statie != NULL){
-														if(xmlStrcmp(statie->name, (const xmlChar *)"arrival_time") == 0){
+														if(xmlStrcmp(statie->name, (const xmlChar*)"arrival_time") == 0){
 															strcpy(arrival_time, xmlNodeGetContent(statie));
 															arrival_time[5] = '\0';
 															for(int i = 0; i < 2; ++i){
@@ -261,6 +600,69 @@ void* new_client(void* arg){
 													if(ora_actual > atoi(ariv_ore) || (ora_actual >= atoi(ariv_ore) && minute_actual >=  atoi(ariv_minute))){
 														found = true;
 														addStationsDelay(temp, tdelay);
+														//schimbam new_departure
+														if(station_no == 1){
+															while(temp_copy1 != NULL){
+																if(temp_copy1->type == XML_ELEMENT_NODE && xmlStrcmp(temp_copy1->name, (const xmlChar*)"new_departure") == 0){
+																	char new_departure[6];
+																	strcpy(new_departure, xmlNodeGetContent(temp_copy1));
+																	new_departure[5] = '\0';
+																	char h[3], m[3];
+																	for(int i = 0; i < 2; ++i){
+                                                                        h[i] = new_departure[i];
+                                                                        m[i] = new_departure[i+3];
+                                                                    }
+																	h[2] = '\0';
+																	m[2] = '\0';
+																	int new_m = atoi(m) + atoi(tdelay);
+																	int new_h = atoi(h);
+																	if(new_m >= 60){
+																		new_h++; 
+																		new_m -= 60;
+																		if(new_h >= 24) new_h -= 24;
+																	}
+																	if(new_h > 9) sprintf(h, "%d", new_h);
+																	else sprintf(h, "0%d", new_h);
+																	if(new_m > 9) sprintf(m, "%d", new_m);
+																	else sprintf(m, "0%d", new_m);
+																	sprintf(new_departure, "%s:%s", h, m);
+																	xmlNodeSetContent(temp_copy1, new_departure);
+																	break;
+																}
+																temp_copy1 = temp_copy1->next;
+															}
+														}
+														//schimbam new_arrival
+															while(temp_copy2 != NULL){
+																if(temp_copy2->type == XML_ELEMENT_NODE && xmlStrcmp(temp_copy2->name, (const xmlChar*)"new_arrival") == 0){
+																	char new_departure[6];
+																	strcpy(new_departure, xmlNodeGetContent(temp_copy2));
+																	new_departure[5] = '\0';
+																	char h[3], m[3];
+																	for(int i = 0; i < 2; ++i){
+                                                                        h[i] = new_departure[i];
+                                                                        m[i] = new_departure[i+3];
+                                                                    }
+																	h[2] = '\0';
+																	m[2] = '\0';
+																	int new_m = atoi(m) + atoi(tdelay);
+																	int new_h = atoi(h);
+																	if(new_m >= 60){
+																		new_h++; 
+																		new_m -= 60;
+																		if(new_h >= 24) new_h -= 24;
+																	}
+																	if(new_h > 9) sprintf(h, "%d", new_h);
+																	else sprintf(h, "0%d", new_h);
+																	if(new_m > 9) sprintf(m, "%d", new_m);
+																	else sprintf(m, "0%d", new_m);
+																	sprintf(new_departure, "%s:%s", h, m);
+																	xmlNodeSetContent(temp_copy2, new_departure);
+																	break;
+																}
+																temp_copy2 = temp_copy2->next;
+															}
+														
 														break;
 													}
 													else{
@@ -288,6 +690,10 @@ void* new_client(void* arg){
 					}
 					trenuri = trenuri->next;
 				}
+				if(sem_post(&sem) != 0) {
+					perror("Eroare la sem_post");
+					pthread_exit(NULL);
+				}	
 				if(found == true){
 					strcat(raspuns, "[RASPUNS] Raportare înregistrată. Trenul ");
 					strcat(raspuns, train_id);
@@ -324,9 +730,12 @@ void* time_simulation(void* arg){
 	float minute = 1.0/60.0;
 	while(1){
 		server_timef += minute;
-		usleep(500000);
+		usleep(500000); 
 		//printf("%s\n", timp_actual);
-		if(server_timef >= 24.0) server_timef = 0.0;
+		if(server_timef >= 24.0){
+			server_timef = 0.0;
+			reset_schedule();
+		}
 		int hour = (int)(server_timef);
 		int minutes = (server_timef - (float)hour) * 60;
 		//printf("%d\n", minutes);
@@ -346,7 +755,7 @@ int main(){
 	pthread_t threads[MAX_CL];
 	pthread_t ftime;
 	int threads_count = 0;
-
+	sem_init(&sem, 0, 1);
 	if(pthread_create(&ftime, NULL, time_simulation, NULL) != 0){
 		perror("Eroare la creare thread");
 		return errno;
@@ -404,24 +813,18 @@ int main(){
     		perror ("Eroare la accept().\n");
     		continue;
     	}
-
 		if(pthread_create(&threads[threads_count], NULL, new_client, (void*)&client) != 0){
 			perror("Eroare la creare thread");
 			return errno;
 		}
 		threads_count++;
 		printf("Thread nou\n");
-
-		// daca a fost atins nr max de clienti
-		if(threads_count >= MAX_CL){
-			threads_count = 0;
-			while(threads_count < MAX_CL){
-				pthread_join(threads[threads_count], NULL);
-				threads_count++;
-			}
-			threads_count = 0;
-		}
     }
-	
+	//threads_count = 0;
+	while(threads_count < MAX_CL){
+		pthread_join(threads[threads_count], NULL);
+		//threads_count++;
+	}
+	sem_destroy(&sem);
 	close(sd);
 }
