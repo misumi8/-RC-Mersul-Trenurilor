@@ -17,13 +17,58 @@
 
 #define PORT 2024 
 #define s 4096
-#define MAX_CL 3
+#define MAX_CL 5
 #define TRENUL_ASTEAPTA 10
 extern int errno;
 
-float server_timef = 0.0;
+int clienti[MAX_CL];
+float server_timef = 1.0;
 char timp_actual[50];
 sem_t sem;
+
+struct Statie{
+	char delay[4];
+	char arr_time[6]; // xx:xx
+	char stat_name[50];
+};
+
+/*struct Statii{
+	int no_stations;
+	struct Statie* opriri;
+};*/
+
+struct Tren{
+	char id[3];
+	char dep_time[6];
+	char arr_time[6];
+	char from[50];
+	char to[50];
+	struct Statie* ruta; 
+};
+
+struct Tren* trainsInfo;
+
+void sentAnuntIntarziere(int sd, char* trainId, char* intarziere, char* statie){
+	char anunt[200];
+	bzero(anunt, sizeof(anunt));
+	strcat(anunt, "[ANUNȚ] Trenul ");
+	strcat(anunt, trainId);
+	strcat(anunt, " va intârzia cu ");
+	strcat(anunt, intarziere);
+	strcat(anunt, " minute începând cu stația ");
+	strcat(anunt, statie);
+	anunt[strlen(anunt)] = '\0';
+	for(int i = 0; i < MAX_CL; ++i){
+		int d = clienti[i];
+		printf("%d = %d | sd: %d\n", i, d, sd);
+		if(d != sd /*&& (cd != 0 || cd != -1)*/){
+			if(write(d, anunt, strlen(anunt)) == -1){
+				perror("Eroare la write anunt");
+				//exit(125);
+			}
+		}
+	}
+}
 
 void reset_schedule(){
 	xmlDocPtr doc = xmlReadFile("schedule_backup.xml", NULL, 0);
@@ -41,6 +86,16 @@ void reset_schedule(){
 		perror("Eroare la sem_post");
 		exit(0);
 	}
+}
+
+int getNoOfTrains(xmlNodePtr root){
+	xmlNodePtr train = root->children;
+	int count = 0;
+	while(train != NULL){
+		if(xmlStrcmp(train->name, (const xmlChar*)"train") == 0) count++;
+        train = train->next;
+	}
+	return count;
 }
 
 void addStationsDelay(xmlNodePtr train_stations, char delay[4]){
@@ -115,7 +170,11 @@ void* new_client(void* arg){
 		}
 		printf("Comanda primita: %s\n", comanda);
 		// pregatim raspunsul pentru comanda
-		if(strstr(comanda, "change_station") != NULL){
+		if(strstr(comanda, "<admin>reset_schedule") != NULL || strcmp(comanda, "8668\n") == 0){
+			server_timef = 0.0;
+			reset_schedule();
+		}
+		else if(strstr(comanda, "change_station") != NULL){
 			strcpy(statie_client, &comanda[15]);
 			statie_client[strlen(statie_client) - 1] = '\0';
 		}
@@ -600,6 +659,8 @@ void* new_client(void* arg){
 													if(ora_actual > atoi(ariv_ore) || (ora_actual >= atoi(ariv_ore) && minute_actual >=  atoi(ariv_minute))){
 														found = true;
 														addStationsDelay(temp, tdelay);
+														sentAnuntIntarziere(csd, train_id, tdelay, statie_client);
+														//aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 														//schimbam new_departure
 														if(station_no == 1){
 															while(temp_copy1 != NULL){
@@ -722,6 +783,7 @@ void* new_client(void* arg){
 			break;
 		}
 	}
+	printf("\n{{{{}}}}}%s{{{{}}}}\n", trainsInfo[0].id);
 	if(close(csd) == -1) perror("Eroare la close.");
 	pthread_exit(NULL);
 }
@@ -750,8 +812,120 @@ void* time_simulation(void* arg){
 	}
 }
 
+int GetNoOfStations(xmlNodePtr tren){
+	xmlNodePtr trenInfo = tren->children;
+	int count = 0;
+	while(trenInfo != NULL) {
+		if(xmlStrcmp(trenInfo->name, (const xmlChar*)"statie") == 0) count++;
+		trenInfo = trenInfo->next;
+	}
+	return count;
+}
+
+struct Tren* getInfoSchedule(int no_of_trains){
+	xmlDocPtr schedule;
+	xmlNodePtr root;
+	schedule = xmlReadFile("schedule.xml", NULL, 0);
+	if(schedule == NULL){
+		perror("Eroare la citirea fisierului schedule.xml\n");
+	}
+	root = xmlDocGetRootElement(schedule);
+	if(root == NULL){
+		perror("Fisierul xml e gol\n");
+    }
+	struct Tren* TrenuriInfo = malloc(sizeof(struct Tren) * no_of_trains);
+	int j = 0;
+	xmlNodePtr trenuri = root->children;
+	while(trenuri != NULL){
+		//printf("A");
+		if(xmlStrcmp(trenuri->name, (const xmlChar*)"train") == 0){
+			//printf("TREN\n");
+			xmlNodePtr train = trenuri->children;
+			int no_of_stations = GetNoOfStations(train);
+			struct Tren tr;
+			struct Statie* stations = malloc(sizeof(struct Statie) * no_of_stations); 
+			int i = 0;
+			while(train != NULL){
+				//printf("^%s^\n", train->name);
+				if(xmlStrcmp(train->name, (const xmlChar*)"id") == 0){
+					strcpy(tr.id, xmlNodeGetContent(train));
+					tr.id[strlen(tr.id)] = '\0';
+					//printf("tr.id: %s\n", tr.id);
+				}
+				else if(xmlStrcmp(train->name, (const xmlChar*)"from") == 0){
+					strcpy(tr.from, xmlNodeGetContent(train));
+					tr.from[strlen(tr.from)] = '\0';
+					//printf("tr.from: %s\n", tr.from);
+				}
+				else if(xmlStrcmp(train->name, (const xmlChar*)"to") == 0){
+					strcpy(tr.to, xmlNodeGetContent(train));
+					tr.to[strlen(tr.to)] = '\0';
+					//printf("tr.to: %s\n", tr.to);
+				}
+				else if(xmlStrcmp(train->name, (const xmlChar*)"departure") == 0){
+					strcpy(tr.dep_time, xmlNodeGetContent(train));
+					tr.dep_time[strlen(tr.dep_time)-1] = '\0';
+					//printf("tr.dep_time: %s\n", tr.dep_time);
+				}
+				else if(xmlStrcmp(train->name, (const xmlChar*)"arrival") == 0){
+					strcpy(tr.arr_time, xmlNodeGetContent(train));
+					tr.arr_time[strlen(tr.arr_time)-1] = '\0';
+					//printf("tr.arr_time: %s\n", tr.arr_time);
+				}
+				else if(xmlStrcmp(train->name, (const xmlChar*)"statie") == 0){
+					xmlNodePtr statie = train->children;
+					struct Statie* statieInfo = malloc(sizeof(struct Statie));
+					while(statie != NULL){
+						//printf("%d|",j);
+						if(xmlStrcmp(statie->name, (const xmlChar*)"name") == 0){
+							strcpy(statieInfo->stat_name, xmlNodeGetContent(statie));
+							statieInfo->stat_name[strlen(statieInfo->stat_name)] = '\0';
+							//printf("statieInfo.stat_name: %s\n", statieInfo->stat_name);
+						}
+						else if(xmlStrcmp(statie->name, (const xmlChar*)"arrival_time") == 0){
+							strcpy(statieInfo->arr_time, xmlNodeGetContent(statie));
+							statieInfo->arr_time[strlen(statieInfo->arr_time)] = '\0';
+							//printf("statieInfo.arr_time: %s\n", statieInfo->arr_time);
+						}
+						else if(xmlStrcmp(statie->name, (const xmlChar*)"arrival_delay") == 0){
+							strcpy(statieInfo->delay, xmlNodeGetContent(statie));
+							statieInfo->delay[strlen(statieInfo->delay)-1] = '\0';
+							//printf("statieInfo.delay: %s\n", statieInfo->delay);
+						}
+						statie = statie->next;
+					}
+					stations[i] = *statieInfo;
+					++i;
+				}
+				train = train->next;
+			}
+			tr.ruta = stations;
+			TrenuriInfo[j] = tr;
+			++j;
+		}
+		//if(strcmp(xmlNodeGetContent(temp), train_id) == 0){}
+		trenuri = trenuri->next;
+	}
+	return TrenuriInfo;
+}
 
 int main(){
+	xmlDocPtr schedule;
+	xmlNodePtr root;
+	schedule = xmlReadFile("schedule.xml", NULL, 0);
+	if(schedule == NULL){
+		perror("Eroare la citirea fisierului schedule.xml\n");
+	}
+	root = xmlDocGetRootElement(schedule);
+	if(root == NULL){
+		perror("Fisierul xml e gol\n");
+    }
+	int no_of_trains = getNoOfTrains(root);
+
+	trainsInfo = malloc(sizeof(struct Tren) * no_of_trains);
+	trainsInfo = getInfoSchedule(no_of_trains);
+	//printf("$|%s| -> |%s|$\n", trainsInfo[1].ruta[0].arr_time, trainsInfo[2].id);
+
 	pthread_t threads[MAX_CL];
 	pthread_t ftime;
 	int threads_count = 0;
@@ -772,8 +946,7 @@ int main(){
     struct sockaddr_in from;
     int sd;	
 
-    if ((sd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
-    {
+    if ((sd = socket(AF_INET, SOCK_STREAM, 0)) == -1){
     	perror ("Eroare la socket().\n");
     	return errno;
     }
@@ -792,7 +965,7 @@ int main(){
     	return errno;
     }
 
-    printf("ip: %d \t port: %d\n", server.sin_addr.s_addr, server.sin_port);
+    printf("ip: %d \t port: %d\n", server.sin_addr.s_addr, PORT);
     fflush(stdout);
 
     if (listen(sd, MAX_CL) == -1){
@@ -803,12 +976,16 @@ int main(){
     while(1){
     	int client;
     	int length = sizeof(from);
-
+		while(threads_count > MAX_CL){
+			pthread_join(threads[threads_count - 1], NULL);
+			--threads_count;
+		}
     	//printf ("Asteptam la portul %d...\n",PORT);
     	//fflush (stdout);
-
     	/* acceptam un client (stare blocanta pina la realizarea conexiunii) */
     	client = accept(sd, (struct sockaddr *) &from, &length);
+		clienti[threads_count] = client;
+		//printf("%d = %d", threads_count, clienti[threads_count]);
     	if(client < 0){
     		perror ("Eroare la accept().\n");
     		continue;

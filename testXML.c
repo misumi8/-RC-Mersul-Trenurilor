@@ -21,22 +21,57 @@ void traverse(xmlNode *node) {
     }
 }
 
+struct Statie{
+	char arr_time[5]; // xx:xx
+	char stat_name[50];
+};
+
+/*struct Statii{
+	int no_stations;
+	struct Statie* opriri;
+};*/
+
+struct Tren{
+    char id[2];
+	char dep_time[5];
+	char arr_time[5];
+	char from[50];
+	char to[50];
+	struct Statie* ruta; 
+};
+
+int getNoOfStations(xmlNodePtr root){
+	xmlNodePtr train = root->children;
+	int count = 0;
+	while(train != NULL){
+		if(xmlStrcmp(train->name, (const xmlChar*)"train") == 0){
+            xmlNodePtr awd = train->children;
+            while(awd != NULL) {
+                if(xmlStrcmp(awd->name, (const xmlChar*)"statie") == 0){
+                    count++;
+                }
+                awd = awd->next;
+            }
+            printf("%d|", count);
+            count = 0;
+        }
+        train = train->next;
+	}
+	return count;
+}
+
 int main() {
-    xmlDoc *doc = NULL;
-    xmlNode *root = NULL;
-
-    doc = xmlReadFile("schedule.xml", NULL, 0);
-    if (doc == NULL) {
-        printf("Error parsing XML file.\n");
-        return 1;
+    xmlDocPtr schedule;
+	xmlNodePtr root;
+	schedule = xmlReadFile("schedule.xml", NULL, 0);
+	if(schedule == NULL){
+		perror("Eroare la citirea fisierului schedule.xml\n");
+	}
+	root = xmlDocGetRootElement(schedule);
+	if(root == NULL){
+		perror("Fisierul xml e gol\n");
     }
-
-    root = xmlDocGetRootElement(doc);
-
-    traverse(root);
-
-    xmlFreeDoc(doc);
-    xmlCleanupParser();
-
+	int no_of_trains = getNoOfStations(root);
+	//printf("$%d$\n", no_of_trains);
     return 0;
 }
