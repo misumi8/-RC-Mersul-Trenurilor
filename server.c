@@ -15,7 +15,7 @@
 #include <math.h>
 #include <semaphore.h>
 
-#define PORT 2023
+#define PORT 2024
 #define s 4096
 #define MAX_CL 5
 #define TRENUL_ASTEAPTA 10
@@ -106,9 +106,9 @@ void* new_client(void* arg){
 		// pregatim raspunsul pentru comanda
 		if(strstr(comanda, "<admin>reset_schedule") != NULL || strcmp(comanda, "8668\n") == 0){
 			server_timef = 0.0;
-			pthread_mutex_lock(&mutex);
+			//pthread_mutex_lock(&mutex);
 			reset_schedule();
-			pthread_mutex_unlock(&mutex);
+			//pthread_mutex_unlock(&mutex);
 		}
 		else if(strstr(comanda, "change_station") != NULL){
 			strcpy(statie_client, &comanda[15]);
@@ -122,7 +122,7 @@ void* new_client(void* arg){
 		else if(strstr(comanda, "mersul_trenurilor") != NULL || strcmp(comanda, "2\n") == 0) {
 			//working = true;
 			strcat(raspuns, "[RASPUNS] Mersul trenurilor:\n\n");
-			pthread_mutex_lock(&mutex);
+			//pthread_mutex_lock(&mutex);
 			for(int i = 0; i < no_trains; ++i){
 				strcat(raspuns, "\n<=== Trenul ");
 				strcat(raspuns, trainsInfo[i].id);
@@ -149,7 +149,7 @@ void* new_client(void* arg){
 				}
 				strcat(raspuns, "\n");
 			}
-			pthread_mutex_unlock(&mutex);
+			//pthread_mutex_unlock(&mutex);
 		}
 		else if(strstr(comanda, "plecari_in_ora") != NULL || strcmp(comanda, "3\n") == 0){
 			// daca dupa comanda este un nume de oras scriem plecarile din acel oras, altfel scriem toate plecarile intr-o ora
@@ -189,7 +189,7 @@ void* new_client(void* arg){
 			ore--;
 			if(ore < 0) ore += 24;
 			if(oras){
-				pthread_mutex_lock(&mutex);
+				//pthread_mutex_lock(&mutex);
 				for(int i = 0; i < no_trains; ++i){
 					bool exista_statie = false;
 					for(int q = 0; q < trainsInfo[i].no_of_stations; ++q){
@@ -242,10 +242,10 @@ void* new_client(void* arg){
 						}
 					}
 				}
-				pthread_mutex_unlock(&mutex);
+				//pthread_mutex_unlock(&mutex);
 			}
 			else {
-				pthread_mutex_lock(&mutex);
+				//pthread_mutex_lock(&mutex);
 				for(int y = 0; y < no_trains; ++y) {
 					bool firstTime = true;
 					for(int o = 0; o < trainsInfo[y].no_of_stations; ++o){
@@ -289,7 +289,7 @@ void* new_client(void* arg){
 						}
 					}
 				}
-				pthread_mutex_unlock(&mutex);
+				//pthread_mutex_unlock(&mutex);
 			}
 		} 
 		else if(strstr(comanda, "sosiri_in_ora") != NULL || strcmp(comanda, "4\n") == 0){
@@ -331,7 +331,7 @@ void* new_client(void* arg){
 			ore--;
 			if(ore < 0) ore += 24;
 			if(oras){
-				pthread_mutex_lock(&mutex);
+				//pthread_mutex_lock(&mutex);
 				for(int i = 0; i < no_trains; ++i){
 					bool exista_statie = false;
 					for(int q = 0; q < trainsInfo[i].no_of_stations; ++q){
@@ -384,10 +384,10 @@ void* new_client(void* arg){
 						}
 					}
 				}
-				pthread_mutex_unlock(&mutex);
+				//pthread_mutex_unlock(&mutex);
 			}
 			else {
-				pthread_mutex_lock(&mutex);
+				//pthread_mutex_lock(&mutex);
 				for(int y = 0; y < no_trains; ++y) {
 					bool firstTime = true;
 					for(int o = 0; o < trainsInfo[y].no_of_stations; ++o){
@@ -429,7 +429,7 @@ void* new_client(void* arg){
 						}
 					}
 				}
-				pthread_mutex_unlock(&mutex);
+				//pthread_mutex_unlock(&mutex);
 			}
 		} 
 		else if(strstr(comanda, "intarzieri") != NULL || strcmp(comanda, "5\n") == 0){
@@ -445,7 +445,7 @@ void* new_client(void* arg){
 			}
 			strcat(raspuns, ":\n");
 			if(!oras){
-				pthread_mutex_lock(&mutex);
+				//pthread_mutex_lock(&mutex);
 				for(int i = 0; i < no_trains; ++i){
 					strcat(raspuns, "*Trenul ");
 					strcat(raspuns, trainsInfo[i].id);
@@ -466,10 +466,10 @@ void* new_client(void* arg){
 					}
 					if(!delay_found) strcat(raspuns, "fără întârzieri\n");
 				}
-				pthread_mutex_unlock(&mutex);
+				//pthread_mutex_unlock(&mutex);
 			}
 			else{
-				pthread_mutex_lock(&mutex);
+				//pthread_mutex_lock(&mutex);
 				for(int i = 0; i < no_trains; ++i){
 					bool firstTime = true;
 					for(int z = 0; z < trainsInfo[i].no_of_stations; ++z){
@@ -493,7 +493,7 @@ void* new_client(void* arg){
 						}
 					}
 				}
-				pthread_mutex_unlock(&mutex);
+				//pthread_mutex_unlock(&mutex);
 			}
 		} 
 		else if(strstr(comanda, "intarziere") != NULL){
@@ -511,7 +511,7 @@ void* new_client(void* arg){
 				tdelay[3] = '\0';
 				//statie_client
 				bool train_found = false, station_found = false; 
-				pthread_mutex_lock(&mutex);
+				//pthread_mutex_lock(&mutex);
 				for(int i = 0; i < no_trains; ++i){
 					if(strcmp(trainsInfo[i].id, train_id) == 0){
 						train_found = true;
@@ -640,7 +640,7 @@ void* new_client(void* arg){
 						strcat(raspuns, " nu a fost găsit.\n");
 					}
 				}
-				pthread_mutex_unlock(&mutex);
+				//pthread_mutex_unlock(&mutex);
 			}
 		}
 		else strcat(raspuns, "[EROARE] Comandă inexistentă.\n");
@@ -663,9 +663,9 @@ void* time_simulation(void* arg){
 		//printf("%s\n", timp_actual);
 		if(server_timef >= 24.0){
 			server_timef = 0.0;
-			pthread_mutex_lock(&mutex);
+			//pthread_mutex_lock(&mutex);
 			reset_schedule();
-			pthread_mutex_unlock(&mutex);
+			//pthread_mutex_unlock(&mutex);
 		}
 		int hour = (int)(server_timef);
 		int minutes = (server_timef - (float)hour) * 60;
