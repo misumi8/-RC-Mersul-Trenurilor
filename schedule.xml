@@ -56,36 +56,36 @@
         <departure>00:50</departure>
         <arrival>07:00</arrival>
         <new_departure>00:50</new_departure>
-        <new_arrival>10:18</new_arrival>
+        <new_arrival>10:33</new_arrival>
         <statie>
             <name>Iasi</name>
-            <arrival_time>00:51</arrival_time>
-            <arrival_delay>1</arrival_delay>
+            <arrival_time>00:50</arrival_time>
+            <arrival_delay>0</arrival_delay>
         </statie>
         <statie>
             <name>Vaslui</name>
-            <arrival_time>01:56</arrival_time>
-            <arrival_delay>1</arrival_delay>
+            <arrival_time>01:55</arrival_time>
+            <arrival_delay>0</arrival_delay>
         </statie>
         <statie>
             <name>Barlad</name>
-            <arrival_time>02:46</arrival_time>
-            <arrival_delay>1</arrival_delay>
+            <arrival_time>02:45</arrival_time>
+            <arrival_delay>0</arrival_delay>
         </statie>
         <statie>
             <name>Focsani</name>
-            <arrival_time>04:01</arrival_time>
-            <arrival_delay>1</arrival_delay>
+            <arrival_time>04:00</arrival_time>
+            <arrival_delay>0</arrival_delay>
         </statie>
         <statie>
             <name>Buzau</name>
-            <arrival_time>05:21</arrival_time>
-            <arrival_delay>1</arrival_delay>
+            <arrival_time>05:20</arrival_time>
+            <arrival_delay>0</arrival_delay>
         </statie>
         <statie>
             <name>Bucuresti</name>
-            <arrival_time>07:01</arrival_time>
-            <arrival_delay>1</arrival_delay>
+            <arrival_time>07:00</arrival_time>
+            <arrival_delay>0</arrival_delay>
         </statie>
     </train>
     <train>
