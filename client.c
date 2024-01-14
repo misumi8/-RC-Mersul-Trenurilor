@@ -4,6 +4,7 @@
 #include <arpa/inet.h>
 #include <errno.h>
 #include <unistd.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <netdb.h>
@@ -15,6 +16,12 @@ extern int errno;
 void herror(const char *str){
     perror(str);
     exit(errno);
+}
+
+void sigHandler(int sig){
+    printf("Goodbye!\n");
+    sleep(1);
+    exit(0);
 }
 
 int port;
@@ -30,7 +37,9 @@ int main(int argc, char *argv[]){
         printf("Sintaxa: %s <adresa_server> <port>\n", argv[0]);
         return -1;
     }
-
+    if(signal(SIGINT, sigHandler) == SIG_ERR){
+        perror("Eroare la signal");
+    }
     port = atoi(argv[2]);
 
     if ((sd = socket(AF_INET, SOCK_STREAM, 0)) == -1){
@@ -63,7 +72,6 @@ int main(int argc, char *argv[]){
         bzero(comanda, 100);
         bzero(raspuns, ANSWR_SIZE);
         int rd = 0;
-        /* Apel blocant pana cand nu apare ceva in descs */
         if(select(sd + 1, &descs, NULL, NULL, NULL) < 0){
             herror("Eroare la select");
         }

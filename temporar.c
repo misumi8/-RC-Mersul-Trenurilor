@@ -61,7 +61,7 @@ int main(int argc, char *argv[]){
         fflush(stdout);
         bzero(comanda, 100);
         //read(0, comanda, 100); 
-        strcpy(comanda, "intarzieriy\n");
+        strcpy(comanda, "M2 1 intarziere\n");
         //sleep(1);
         if(strstr(comanda, "exit") != NULL || strcmp(comanda, "7\n") == 0) break;
         if (write(sd, comanda, 100) <= 0){
