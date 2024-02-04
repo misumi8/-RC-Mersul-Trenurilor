@@ -25,12 +25,12 @@ extern int errno;
 int clienti[MAX_CL];
 float server_timef = 1.0;
 char timp_actual[50];
-//sem_t sem;
+//:)sem_t sem;
 pthread_mutex_t mutex[4];
 
 struct Statie{
 	char delay[4];
-	char arr_time[6]; // xx:xx
+	char arr_time[6]; //:) xx:xx
 	char stat_name[50];
 };
 
@@ -61,11 +61,11 @@ void sentAnuntIntarziere(int sd, char* trainId, char* intarziere, char* statie){
 	anunt[strlen(anunt)] = '\0';
 	for(int i = 0; i < MAX_CL; ++i){
 		int d = clienti[i];
-		//printf("%d = %d | sd: %d\n", i, d, sd);
+		//:)printf("%d = %d | sd: %d\n", i, d, sd);
 		if(d != sd /*&& (cd != 0 || cd != -1)*/){
 			if(write(d, anunt, strlen(anunt)) == -1){
 				perror("Eroare la write anunt");
-				//exit(125);
+				//:)exit(125);
 			}
 		}
 	}
@@ -92,9 +92,9 @@ void* new_client(void* arg){
 	char statie_client[100];
 	strcpy(statie_client, comanda);
 	statie_client[strlen(statie_client) - 1] = '\0';
-	//printf("\n|%s|\n", statie_client);
+	//:)printf("\n|%s|\n", statie_client);
 	while(1){
-		//bool working = false;
+		//:)bool working = false;
 		int stationsNo = 0;
 		bool primaIntarziere = false;
 		bzero(&comanda, 100);
@@ -104,7 +104,7 @@ void* new_client(void* arg){
 			break;
 		}
 		printf("Comanda primita: %s\n", comanda);
-		// pregatim raspunsul pentru comanda
+		//:) pregatim raspunsul pentru comanda
 		if(strstr(comanda, "<admin>reset_schedule") != NULL || strcmp(comanda, "8668\n") == 0){
 			server_timef = 0.0;
 			for(int k = 0; k < 4; ++k) pthread_mutex_lock(&mutex[k]);
@@ -121,7 +121,7 @@ void* new_client(void* arg){
 			strcat(raspuns, "\n");
 		}
 		else if(strstr(comanda, "mersul_trenurilor") != NULL || strcmp(comanda, "2\n") == 0) {
-			//working = true;
+			//:)working = true;
 			strcat(raspuns, "[RASPUNS] Mersul trenurilor:\n\n");
 			pthread_mutex_lock(&mutex[0]);
 			for(int i = 0; i < no_trains; ++i){
@@ -153,7 +153,7 @@ void* new_client(void* arg){
 			pthread_mutex_unlock(&mutex[0]);
 		}
 		else if(strstr(comanda, "plecari_in_ora") != NULL || strcmp(comanda, "3\n") == 0){
-			// daca dupa comanda este un nume de oras scriem plecarile din acel oras, altfel scriem toate plecarile intr-o ora
+			//:) daca dupa comanda este un nume de oras scriem plecarile din acel oras, altfel scriem toate plecarile intr-o ora
 			char h[3], m[3];
 			bool oras = false;
 			for(int i = 0; i < 2; ++i){
@@ -510,7 +510,7 @@ void* new_client(void* arg){
 					if(comanda[i+3] >= '0' && comanda[i+3] <= '9') tdelay[i] = comanda[i+3];
 				}
 				tdelay[3] = '\0';
-				//statie_client
+				//:)statie_client
 				bool train_found = false, station_found = false; 
 				for(int k = 0; k < 4; ++k) pthread_mutex_lock(&mutex[k]);
 				for(int i = 0; i < no_trains; ++i){
@@ -566,7 +566,7 @@ void* new_client(void* arg){
 										hours[2] = '\0';
 										sprintf(new_arr, "%s:%s", hours, mins);
 										new_arr[5] = '\0';
-										//printf("^newarr = %s^\n", new_arr);
+										//:)printf("^newarr = %s^\n", new_arr);
 										strcpy(trainsInfo[i].ruta[x].arr_time, new_arr);
 										strcpy(trainsInfo[i].ruta[x].delay, total_delay);
 									}
@@ -651,7 +651,7 @@ void* new_client(void* arg){
 			break;
 		}
 	}
-	//printf("\n{{{{}}}}}%s{{{{}}}}\n", trainsInfo[0].id);
+	//:)printf("\n{{{{}}}}}%s{{{{}}}}\n", trainsInfo[0].id);
 	if(close(csd) == -1) perror("Eroare la close.");
 	pthread_exit(NULL);
 }
@@ -661,7 +661,7 @@ void* time_simulation(void* arg){
 	while(1){
 		server_timef += minute;
 		usleep(500000); 
-		//printf("%s\n", timp_actual);
+		//:)printf("%s\n", timp_actual);
 		if(server_timef >= 24.0){
 			server_timef = 0.0;
 			for(int k = 0; k < 4; ++k) pthread_mutex_lock(&mutex[k]);
@@ -670,7 +670,7 @@ void* time_simulation(void* arg){
 		}
 		int hour = (int)(server_timef);
 		int minutes = (server_timef - (float)hour) * 60;
-		//printf("%d\n", minutes);
+		//:)printf("%d\n", minutes);
 		if(hour < 10) {
 			if(minutes < 10) sprintf(timp_actual, "0%d:0%d", hour, minutes);
 			else sprintf(timp_actual, "0%d:%d", hour, minutes);
@@ -684,14 +684,14 @@ void* time_simulation(void* arg){
 
 int GetNoOfStations(xmlNodePtr tren){
 	tren = tren->next;
-	//xmlNodePtr trenInfo = tren->children;
+	//:)xmlNodePtr trenInfo = tren->children;
 	int count = 0;
 	while(tren != NULL) {
-		//printf("{%s}", tren->name);
+		//:)printf("{%s}", tren->name);
 		if(xmlStrcmp(tren->name, (const xmlChar*)"statie") == 0) count++;
 		tren = tren->next;
 	}
-	//printf("|{%d}\n", count);
+	//:)printf("|{%d}\n", count);
 	return count;
 }
 
@@ -710,63 +710,63 @@ struct Tren* getInfoSchedule(int no_of_trains){
 	int j = 0;
 	xmlNodePtr trenuri = root->children;
 	while(trenuri != NULL){
-		//printf("A");
+		//:)printf("A");
 		if(trenuri->type == XML_ELEMENT_NODE && xmlStrcmp(trenuri->name, (const xmlChar*)"train") == 0){
-			//printf("TREN\n");
+			//:)printf("TREN\n");
 			xmlNodePtr train = trenuri->children;
 			int no_of_stations = GetNoOfStations(train);
-			//printf("T%dT\n", no_of_stations);
+			//:)printf("T%dT\n", no_of_stations);
 			struct Tren tr;
 			struct Statie* stations = malloc(sizeof(struct Statie) * no_of_stations); 
 			tr.no_of_stations = no_of_stations;
 			int i = 0;
 			while(train != NULL){
-				//printf("^%s^\n", train->name);
+				//:)printf("^%s^\n", train->name);
 				if(xmlStrcmp(train->name, (const xmlChar*)"id") == 0){
 					strcpy(tr.id, xmlNodeGetContent(train));
 					tr.id[strlen(tr.id)] = '\0';
-					//printf("tr.id: %s\n", tr.id);
+					//:)printf("tr.id: %s\n", tr.id);
 				}
 				else if(xmlStrcmp(train->name, (const xmlChar*)"from") == 0){
 					strcpy(tr.from, xmlNodeGetContent(train));
 					tr.from[strlen(tr.from)] = '\0';
-					//printf("tr.from: %s\n", tr.from);
+					//:)printf("tr.from: %s\n", tr.from);
 				}
 				else if(xmlStrcmp(train->name, (const xmlChar*)"to") == 0){
 					strcpy(tr.to, xmlNodeGetContent(train));
 					tr.to[strlen(tr.to)] = '\0';
-					//printf("tr.to: %s\n", tr.to);
+					//:)printf("tr.to: %s\n", tr.to);
 				}
 				else if(xmlStrcmp(train->name, (const xmlChar*)"departure") == 0){
 					strcpy(tr.dep_time, xmlNodeGetContent(train));
 					tr.dep_time[strlen(tr.dep_time)] = '\0';
-					//printf("tr.dep_time: %s\n", tr.dep_time);
+					//:)printf("tr.dep_time: %s\n", tr.dep_time);
 				}
 				else if(xmlStrcmp(train->name, (const xmlChar*)"arrival") == 0){
 					strcpy(tr.arr_time, xmlNodeGetContent(train));
 					tr.arr_time[strlen(tr.arr_time)] = '\0';
-					//printf("tr.arr_time: %s\n", tr.arr_time);
+					//:)printf("tr.arr_time: %s\n", tr.arr_time);
 				}
 				else if(xmlStrcmp(train->name, (const xmlChar*)"statie") == 0){
 					xmlNodePtr statie = train->children;
 					struct Statie* statieInfo = malloc(sizeof(struct Statie));
 					while(statie != NULL){
-						//printf("%d|",j);
+						//:)printf("%d|",j);
 						if(statie->type == XML_ELEMENT_NODE){
 							if(xmlStrcmp(statie->name, (const xmlChar*)"name") == 0){
 								strcpy(statieInfo->stat_name, xmlNodeGetContent(statie));
 								statieInfo->stat_name[strlen(statieInfo->stat_name)] = '\0';
-								//printf("statieInfo.stat_name: %s\n", statieInfo->stat_name);
+								//:)printf("statieInfo.stat_name: %s\n", statieInfo->stat_name);
 							}
 							else if(xmlStrcmp(statie->name, (const xmlChar*)"arrival_time") == 0){
 								strcpy(statieInfo->arr_time, xmlNodeGetContent(statie));
 								statieInfo->arr_time[strlen(statieInfo->arr_time)] = '\0';
-								//printf("statieInfo.arr_time: %s\n", statieInfo->arr_time);
+								//:)printf("statieInfo.arr_time: %s\n", statieInfo->arr_time);
 							}
 							else if(xmlStrcmp(statie->name, (const xmlChar*)"arrival_delay") == 0){
 								strcpy(statieInfo->delay, xmlNodeGetContent(statie));
 								statieInfo->delay[strlen(statieInfo->delay)] = '\0';
-								//printf("statieInfo.delay: %s\n", statieInfo->delay);
+								//:)printf("statieInfo.delay: %s\n", statieInfo->delay);
 							}
 						}
 						statie = statie->next;
@@ -780,7 +780,7 @@ struct Tren* getInfoSchedule(int no_of_trains){
 			TrenuriInfo[j] = tr;
 			++j;
 		}
-		//if(strcmp(xmlNodeGetContent(temp), train_id) == 0){}
+		//:)if(strcmp(xmlNodeGetContent(temp), train_id) == 0){}
 		trenuri = trenuri->next;
 	}
 	return TrenuriInfo;
@@ -820,10 +820,10 @@ int main(){
 		perror("Fisierul xml e gol\n");
     }
 	no_trains = getNoOfTrains(root);
-	//printf("%d\n", no_trains);
+	//:)printf("%d\n", no_trains);
 	trainsInfo = malloc(sizeof(struct Tren) * no_trains);
 	trainsInfo = getInfoSchedule(no_trains);
-	//printf("$|%s| -> |%s|$\n", trainsInfo[1].ruta[0].arr_time, trainsInfo[2].id);
+	//:)printf("$|%s| -> |%s|$\n", trainsInfo[1].ruta[0].arr_time, trainsInfo[2].id);
 
 	pthread_t threads[MAX_CL];
 	pthread_t ftime;
@@ -856,7 +856,7 @@ int main(){
     server.sin_addr.s_addr = htonl(INADDR_ANY);
     server.sin_port = htons(PORT);
 
-	//in caz ca adresa deja se foloseste
+	//:)in caz ca adresa deja se foloseste
     if (bind(sd, (struct sockaddr *)&server, sizeof(struct sockaddr)) == -1){
     	perror("Eroare la bind().\n");
 		close(sd);
@@ -878,12 +878,12 @@ int main(){
 			pthread_join(threads[threads_count - 1], NULL);
 			--threads_count;
 		}
-    	//printf ("Asteptam la portul %d...\n",PORT);
-    	//fflush (stdout);
+    	//:)printf ("Asteptam la portul %d...\n",PORT);
+    	//:)fflush (stdout);
     	/* acceptam un client (stare blocanta pina la realizarea conexiunii) */
     	client = accept(sd, (struct sockaddr *) &from, &length);
 		clienti[threads_count] = client;
-		//printf("%d = %d", threads_count, clienti[threads_count]);
+		//:)printf("%d = %d", threads_count, clienti[threads_count]);
     	if(client < 0){
     		perror ("Eroare la accept().\n");
     		continue;
@@ -895,10 +895,10 @@ int main(){
 		threads_count++;
 		printf("Thread nou\n");
     }
-	//threads_count = 0;
+	//:)threads_count = 0;
 	while(threads_count < MAX_CL){
 		pthread_join(threads[threads_count], NULL);
-		//threads_count++;
+		//:)threads_count++;
 	}
 	pthread_mutex_destroy(&mutex[0]);
 	pthread_mutex_destroy(&mutex[1]);
